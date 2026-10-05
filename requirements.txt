@@ -24,3 +24,4 @@ Pillow>=10.0.0
 # Decision-Support Application
 streamlit>=1.40.0
 joblib==1.5.3
+requests>=2.32.0

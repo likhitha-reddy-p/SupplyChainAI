@@ -145,7 +145,8 @@ nav_choice = st.sidebar.radio(
         "7. Recovery Optimization",
         "8. Explainability (SHAP)",
         "9. Supply Chain Graph / GNN",
-        "10. Model Benchmarks & Audit"
+        "10. Model Benchmarks & Audit",
+        "11. Live Monitoring",
     ]
 )
 
@@ -188,31 +189,41 @@ if nav_choice == "1. Home & Overview":
         
     st.markdown("### System Architecture")
     st.code("""
-    QR / Barcode Identification Layer
-                 ↓
+    Historical Supply-Chain Data  +  Live / Updated Operational Data
+                         ↓
+         QR / Barcode Shipment Identification Layer
+                         ↓
     Data Preprocessing & Strict Chronological Split (2024 Train / 2025 Test)
-                 ↓
-       ┌─────────┴──────────┐
-       ↓                    ↓
-  LSTM Demand          Supply Chain Graph / GNN
-  Forecasting          Structural Risk Propagation
-       ↓                    ↓
-       └─────────┬──────────┘
-                 ↓
-     XGBoost Pre-Disruption Risk Prediction (Strict Zero-Leakage Policy)
-                 ↓
-     Post-Disruption Consequence Impact Analysis
-                 ↓
-     Monte Carlo Scenario Uncertainty Simulation (2,000 runs)
-                 ↓
-     Constrained Recovery Strategy Optimization (MCDA)
-                 ↓
-     SHAP Explainability (TreeSHAP Feature Attributions)
-                 ↓
-     Streamlit Operational Decision Support Dashboard
+                         ↓
+           ┌─────────┴──────────┐
+           ↓                    ↓
+      LSTM Demand          Supply Chain Graph / GNN
+      Forecasting          Structural Risk Propagation
+           ↓                    ↓
+           └─────────┬──────────┘
+                     ↓
+       XGBoost Pre-Disruption Risk Prediction (Strict Zero-Leakage Policy)
+                     ↓
+       Post-Disruption Consequence Impact Analysis
+                     ↓
+       Monte Carlo Scenario Uncertainty Simulation (2,000 runs)
+                     ↓
+       Constrained Recovery Strategy Optimization (MCDA)
+                     ↓
+       SHAP Explainability (TreeSHAP Feature Attributions)
+                     ↓
+       Near-Real-Time Monitoring & Alerts
+       (Live weather data + simulated operational events →
+        updated XGBoost inference using fixed trained model)
+                     ↓
+       Streamlit Operational Decision Support Dashboard
+    Note: LSTM and GNN models remain fixed after training.
+    The near-real-time layer performs updated inference on existing models;
+    no continuous retraining is implemented.
     """, language="text")
-    
+
     st.markdown("### Core Methodologies")
+
     c1, c2 = st.columns(2)
     with c1:
         st.markdown("""
@@ -804,3 +815,377 @@ elif nav_choice == "10. Model Benchmarks & Audit":
             st.code(f.read(), language="text")
     else:
         st.info("Run preprocessing/leakage_audit.py to view audit.")
+
+# =============================================================
+# PAGE 11: NEAR-REAL-TIME LIVE MONITORING
+# =============================================================
+elif nav_choice == "11. Live Monitoring":
+    import datetime as _dt
+    try:
+        import sys as _sys
+        if BASE_DIR not in _sys.path:
+            _sys.path.insert(0, BASE_DIR)
+        from dashboard.live_monitoring import (
+            PORT_COORDINATES, DEFAULT_PORT_KEY,
+            get_live_weather, apply_live_event,
+            calculate_live_risk, get_risk_level, calculate_risk_change,
+            append_live_event_log, predict_impact, LIVE_EVENTS,
+        )
+        _lm_ok = True
+    except Exception as _lm_err:
+        _lm_ok = False
+        st.error(f"Live Monitoring module could not be loaded: {_lm_err}")
+
+    if _lm_ok:
+        st.markdown('<p class="main-header">📡 Near-Real-Time Supply Chain Monitoring</p>',
+                    unsafe_allow_html=True)
+        st.markdown(
+            '<p class="sub-header">Continuously updated prototype decision-support using '
+            'live external data and simulated operational events.</p>',
+            unsafe_allow_html=True,
+        )
+        st.caption(
+            "⚠️ **Data sources:** Live weather → Open-Meteo (free, no API key). "
+            "All operational events are **SIMULATED** for demonstration. "
+            "No real-time GPS tracking, live ERP, or live supplier integration is implemented."
+        )
+
+        # Session state
+        if "lm_event_choice" not in st.session_state:
+            st.session_state["lm_event_choice"] = "Normal Operations"
+        if "live_event_log" not in st.session_state:
+            st.session_state["live_event_log"] = []
+
+        # Active shipment — shared with Page 2 QR Search
+        record      = get_current_record()
+        shipment_id = record.get("Shipment_ID", "Unknown")
+
+        # Port coordinates for weather API
+        origin_port = str(record.get("Origin_Port", DEFAULT_PORT_KEY))
+        port_info   = PORT_COORDINATES.get(origin_port, PORT_COORDINATES[DEFAULT_PORT_KEY])
+        is_demo_loc = origin_port not in PORT_COORDINATES
+
+        lat, lon = port_info["lat"], port_info["lon"]
+
+        # Status bar
+        sb1, sb2, sb3, sb4 = st.columns(4)
+        sb1.success("🟢 Monitoring: Active")
+        sb2.info(f"📦 Active: `{shipment_id}`")
+        sb3.info(f"🕐 Refresh: {_dt.datetime.now().strftime('%H:%M:%S')}")
+        sb4.info(f"📍 Port: {port_info['name']}" + (" *(demo loc)*" if is_demo_loc else ""))
+        st.markdown("---")
+
+        # Live weather (cached ~6 min)
+        weather = get_live_weather(lat, lon)
+        if not weather["available"]:
+            st.warning(
+                "Live weather unavailable — using stored shipment weather information. "
+                f"({weather['source']})"
+            )
+        if is_demo_loc:
+            st.info(
+                f"Origin port `{origin_port}` not in demo set. "
+                f"Showing weather for **{port_info['name']}** as a demonstration location."
+            )
+
+        # Baseline risk — existing prepare_feature_row pipeline
+        try:
+            feat_row_base = explainer.prepare_feature_row(record)
+            baseline_prob = float(explainer.model.predict_proba(feat_row_base)[0, 1])
+        except Exception as _be:
+            st.error(f"Baseline risk calculation failed: {_be}")
+            baseline_prob = 0.0
+
+        # Apply event to a COPY — original record never touched
+        selected_event = st.session_state["lm_event_choice"]
+        live_record    = apply_live_event(record, selected_event, weather)
+
+        # Blend live weather risk if no weather event is active
+        if weather["available"] and weather.get("weather_risk") is not None:
+            if "Weather_Risk_Score" in live_record and selected_event == "Normal Operations":
+                live_record["Weather_Risk_Score"] = max(
+                    float(live_record["Weather_Risk_Score"]),
+                    float(weather["weather_risk"]),
+                )
+
+        # Current risk — same XGBoost model via existing pipeline
+        current_prob = calculate_live_risk(explainer, live_record)
+        risk_change  = calculate_risk_change(baseline_prob, current_prob)
+        risk_label, risk_class, risk_color = get_risk_level(current_prob)
+
+        # Metric cards
+        mc1, mc2, mc3, mc4 = st.columns(4)
+        mc1.metric("Active Shipment", shipment_id)
+        mc2.metric("Baseline Risk",   f"{baseline_prob * 100:.1f}%")
+        mc3.metric("Current Risk",    f"{current_prob * 100:.1f}%",
+                   delta=f"{risk_change:+.1f} pp", delta_color="inverse")
+        arr = "▲" if risk_change >= 0 else "▼"
+        mc4.metric("Risk Change", f"{arr} {abs(risk_change):.1f} pp")
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # Prominent risk panel (same CSS classes as Page 4)
+        st.markdown(
+            f"""<div class="{risk_class}">
+                <h3 style="margin:0;color:{risk_color};">{risk_label}</h3>
+                <h1 style="margin:5px 0;font-size:2.8rem;color:{risk_color};">
+                    {current_prob * 100:.1f}%
+                </h1>
+                <p style="margin:0;font-weight:600;">
+                    Current Predicted Disruption Likelihood &nbsp;|&nbsp;
+                    Baseline: {baseline_prob * 100:.1f}% &nbsp;|&nbsp;
+                    Change: {risk_change:+.1f} percentage points
+                </p>
+                <small>
+                    Shipment: {shipment_id} &nbsp;|&nbsp;
+                    Event: <strong>{selected_event}</strong>
+                    <em>(SIMULATED — not a real operational signal)</em>
+                </small>
+            </div>""",
+            unsafe_allow_html=True,
+        )
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # Alerts
+        if current_prob >= 0.65:
+            changed_conds = []
+            if selected_event != "Normal Operations":
+                changed_conds.append(f"Simulated event: {selected_event}")
+            if weather["available"] and weather.get("weather_risk", 0) > 0.5:
+                changed_conds.append(f"Live weather: {weather['weather_desc']}")
+            st.error(
+                f"⚠️ **HIGH DISRUPTION RISK** — Shipment `{shipment_id}` | "
+                f"Risk: **{current_prob * 100:.1f}%** | Change: **{risk_change:+.1f} pp** | "
+                f"Conditions: {', '.join(changed_conds) if changed_conds else 'see below'}"
+            )
+        elif current_prob >= 0.35:
+            st.warning(
+                f"⚠️ Moderate risk for `{shipment_id}` ({current_prob * 100:.1f}%). Monitor closely."
+            )
+        else:
+            st.success(
+                f"✅ Low risk for `{shipment_id}` ({current_prob * 100:.1f}%). Normal operations."
+            )
+
+        st.markdown("---")
+
+        # Live Conditions + Event Simulator
+        col_cond, col_ctrl = st.columns([3, 2])
+
+        with col_cond:
+            st.markdown("### 🔍 Live Conditions")
+            st.caption(
+                "🔵 LIVE API = Open-Meteo  |  🟠 SIMULATED = event applied  |  ⚫ HISTORICAL = unchanged"
+            )
+
+            _src_c = {"LIVE API": "#1565C0", "SIMULATED": "#E65100", "HISTORICAL": "#37474F"}
+
+            def _crow(label, orig, live, src, fmt=str):
+                sc   = _src_c.get(src, "#37474F")
+                vs   = fmt(live) if live is not None else "N/A"
+                os_  = fmt(orig) if orig is not None else "N/A"
+                chg  = (
+                    f" <em style='color:#E65100;'>← was {os_}</em>"
+                    if src == "SIMULATED" and str(orig) != str(live) else ""
+                )
+                badge = (
+                    f"<span style='background:{sc};color:#fff;"
+                    f"border-radius:4px;padding:1px 7px;font-size:0.72rem;'>{src}</span>"
+                )
+                st.markdown(f"**{label}:** {vs}{chg} &nbsp;{badge}", unsafe_allow_html=True)
+
+            if weather["available"]:
+                _crow("🌡 Temperature",   None, f"{weather['temperature_c']:.1f} °C",    "LIVE API")
+                _crow("🌧 Precipitation", None, f"{weather['precipitation_mm']:.1f} mm", "LIVE API")
+                _crow("💨 Wind Speed",    None, f"{weather['wind_speed_kmh']:.1f} km/h", "LIVE API")
+                _crow("⛅ Weather",       None, weather["weather_desc"],                 "LIVE API")
+                lwr = live_record.get("Weather_Risk_Score", record.get("Weather_Risk_Score"))
+                owr = record.get("Weather_Risk_Score")
+                _crow("☁ Weather Risk",  owr,  lwr,
+                      "LIVE API" if selected_event == "Normal Operations" else "SIMULATED",
+                      fmt=lambda v: f"{float(v):.3f}")
+            else:
+                _crow("⛅ Weather Cond.", None, record.get("Weather_Condition", "N/A"), "HISTORICAL")
+                _crow("☁ Weather Risk",  None, record.get("Weather_Risk_Score"),       "HISTORICAL",
+                      fmt=lambda v: f"{float(v):.3f}")
+
+            st.markdown("")
+
+            sim_cols_by_event = {
+                "Supplier Reliability Drop":   ["Supplier_Reliability_Score"],
+                "Inventory Pressure":          ["Inventory_Level", "Safety_Stock"],
+                "Port Congestion Increase":    ["Port_Congestion_Level"],
+                "Route Risk Increase":         ["Route_Risk_Level", "Geopolitical_Risk_Score"],
+                "Carrier Reliability Drop":    ["Carrier_Reliability_Score"],
+                "Severe Weather Event":        ["Weather_Risk_Score", "Weather_Condition"],
+                "Equipment Availability Drop": ["Handling_Equipment_Availability", "Capacity_Utilization"],
+            }
+            sim_cols = sim_cols_by_event.get(selected_event, [])
+
+            op_fields = [
+                ("🏭 Supplier Reliability",  "Supplier_Reliability_Score",      lambda v: f"{float(v):.3f}"),
+                ("🚚 Carrier Reliability",   "Carrier_Reliability_Score",       lambda v: f"{float(v):.3f}"),
+                ("📦 Inventory Level",       "Inventory_Level",                 lambda v: f"{float(v):,.0f} units"),
+                ("🔒 Safety Stock",          "Safety_Stock",                    lambda v: f"{float(v):,.0f} units"),
+                ("⚓ Port Congestion",       "Port_Congestion_Level",           str),
+                ("🛣 Route Risk Level",      "Route_Risk_Level",                str),
+                ("🔧 Handling Equipment",    "Handling_Equipment_Availability", lambda v: f"{float(v):.1f}%"),
+                ("📊 Capacity Utilization",  "Capacity_Utilization",            lambda v: f"{float(v):.1f}%"),
+                ("🌍 Geopolitical Risk",     "Geopolitical_Risk_Score",         lambda v: f"{float(v):.3f}"),
+            ]
+            for lbl, col, fmt in op_fields:
+                if col not in record:
+                    continue
+                src = "SIMULATED" if col in sim_cols else "HISTORICAL"
+                _crow(lbl, record.get(col), live_record.get(col), src, fmt=fmt)
+
+        with col_ctrl:
+            st.markdown("### ⚙️ Simulated Event Control")
+            st.caption(
+                "Events modify only a COPY of the record. "
+                "The training CSV is never written to."
+            )
+            new_event = st.selectbox(
+                "Operational Event",
+                LIVE_EVENTS,
+                index=LIVE_EVENTS.index(st.session_state["lm_event_choice"]),
+            )
+            if st.button("▶ Apply Event", type="primary", use_container_width=True):
+                st.session_state["lm_event_choice"] = new_event
+                try:
+                    _opt = optimizer.evaluate_recovery_options(live_record)
+                    _ra  = _opt["recommended_action"]
+                except Exception:
+                    _ra  = "Unavailable"
+                append_live_event_log(shipment_id, new_event, baseline_prob, current_prob, _ra)
+                st.rerun()
+
+            if st.button("🔄 Refresh Live Weather", use_container_width=True):
+                st.cache_data.clear()
+                st.rerun()
+
+            _edesc = {
+                "Normal Operations":           "No modifications — baseline state.",
+                "Supplier Reliability Drop":   "Supplier_Reliability_Score − 0.35.",
+                "Inventory Pressure":          "Inventory_Level × 0.40; Safety_Stock × 0.50.",
+                "Port Congestion Increase":    "Port_Congestion_Level → Critical.",
+                "Route Risk Increase":         "Route_Risk_Level → High; Geopolitical_Risk_Score + 0.40.",
+                "Carrier Reliability Drop":    "Carrier_Reliability_Score − 0.30.",
+                "Severe Weather Event":        "Weather_Risk_Score + 0.40; Weather_Condition → Storm.",
+                "Equipment Availability Drop": "Handling_Equipment_Availability × 0.45; Capacity_Utilization + 20.",
+            }
+            st.info(f"ℹ️ **{selected_event}:** {_edesc.get(selected_event, '')}")
+
+            st.markdown("---")
+            st.markdown("#### 📊 Risk Summary")
+            st.markdown(f"- **Baseline:** {baseline_prob * 100:.1f}%")
+            st.markdown(f"- **Current:** {current_prob * 100:.1f}%")
+            st.markdown(
+                f"- **Change:** {risk_change:+.1f} pp  "
+                f"({'🔴 increased' if risk_change > 0.5 else '🟢 stable/reduced'})"
+            )
+            st.caption("Thresholds — Low < 35% | Moderate 35–65% | High ≥ 65% (same as Page 4).")
+
+        st.markdown("---")
+
+        # Impact Assessment (existing models, reused)
+        if current_prob >= 0.35 and impact_artifacts:
+            st.markdown("### 💰 Estimated Disruption Impact")
+            st.caption(
+                "Calculated using the existing trained impact models (identical to Page 5). "
+                "Applied to the live_record copy. Historical data is unchanged."
+            )
+            try:
+                imp_live = predict_impact(impact_artifacts, live_record)
+                imp_base = predict_impact(impact_artifacts, record)
+                if imp_live:
+                    ic1, ic2, ic3, ic4 = st.columns(4)
+                    ic1.metric("Expected Delay",           f"{imp_live['delay']:.1f} d",
+                               delta=f"{imp_live['delay']-(imp_base['delay'] if imp_base else 0):+.1f} d"
+                                     if imp_base else None, delta_color="inverse")
+                    ic2.metric("Inventory Shortfall",      f"{imp_live['shortage']:.0f} units",
+                               delta=f"{imp_live['shortage']-(imp_base['shortage'] if imp_base else 0):+.0f}"
+                                     if imp_base else None, delta_color="inverse")
+                    ic3.metric("Projected Financial Loss", f"${imp_live['loss']:,.0f}",
+                               delta=f"${imp_live['loss']-(imp_base['loss'] if imp_base else 0):+,.0f}"
+                                     if imp_base else None, delta_color="inverse")
+                    ic4.metric("Overall Impact Score",     f"{imp_live['score']:.1f}/100",
+                               delta=f"{imp_live['score']-(imp_base['score'] if imp_base else 0):+.1f}"
+                                     if imp_base else None, delta_color="inverse")
+                    st.caption("Δ = difference from baseline (unmodified record) estimate.")
+                else:
+                    st.info("Estimated impact based on existing trained impact model "
+                            "(feature vector unavailable for modified record).")
+            except Exception as _ie:
+                st.warning(f"Impact estimation unavailable: {_ie}. Use Page 5.")
+
+        # Recovery Recommendation (existing RecoveryOptimizer)
+        if current_prob >= 0.35:
+            st.markdown("---")
+            st.markdown("### 🎯 Recovery Recommendation")
+            st.caption("Generated by the existing RecoveryOptimizer (same as Page 7).")
+            try:
+                opt_res  = optimizer.evaluate_recovery_options(live_record)
+                rec_name = opt_res["recommended_action"]
+                rec_rat  = opt_res["rationale"]
+                st.markdown(
+                    f"""<div class="risk-low">
+                        <h4 style="margin:0;color:#2E7D32;">🎯 RECOMMENDED RECOVERY ACTION</h4>
+                        <h3 style="margin:5px 0;color:#1B5E20;">{rec_name}</h3>
+                        <p style="margin:0;font-size:0.9rem;">{rec_rat}</p>
+                        <small style="color:#555;">
+                            Notice: Decision-support suggestion based on configured operational objectives
+                            and constraints — not a universally optimal prescription.
+                        </small>
+                    </div>""",
+                    unsafe_allow_html=True,
+                )
+            except Exception as _oe:
+                st.warning(f"Recovery recommendation unavailable: {_oe}. Use Page 7.")
+
+        # SHAP Explanation (existing DisruptionExplainer)
+        if current_prob >= 0.35:
+            st.markdown("---")
+            st.markdown("### 🔍 SHAP Feature Attributions")
+            with st.expander("Show SHAP explanation for current live record", expanded=False):
+                try:
+                    exp = explainer.explain_instance(live_record)
+                    sc1, sc2 = st.columns(2)
+                    with sc1:
+                        st.markdown("#### 🔴 Risk-Increasing Factors")
+                        for f in exp.get("top_risk_increasing_factors", [])[:5]:
+                            st.write(
+                                f"• **{f['readable_name']}** — "
+                                f"value: `{f['feature_value']:.3f}` | "
+                                f"SHAP: `+{f['shap_value']:.4f}`"
+                            )
+                    with sc2:
+                        st.markdown("#### 🟢 Risk-Reducing Factors")
+                        for f in exp.get("top_risk_reducing_factors", [])[:5]:
+                            st.write(
+                                f"• **{f['readable_name']}** — "
+                                f"value: `{f['feature_value']:.3f}` | "
+                                f"SHAP: `{f['shap_value']:.4f}`"
+                            )
+                    st.caption(
+                        "SHAP on live_record copy via existing DisruptionExplainer. "
+                        "For global analysis visit Page 8 (Explainability)."
+                    )
+                except Exception as _se:
+                    st.info(
+                        f"SHAP unavailable for modified record ({_se}). "
+                        "Use Page 8 for full SHAP analysis."
+                    )
+
+        # Live Event Log (in-memory, session only, never written to disk/CSV)
+        st.markdown("---")
+        st.markdown("### 📋 Live Event Log")
+        st.caption(
+            "Session-level in-memory log (latest 20). "
+            "Not persisted. Never written to training data or historical CSV."
+        )
+        log = st.session_state.get("live_event_log", [])
+        if log:
+            st.dataframe(pd.DataFrame(log), use_container_width=True, hide_index=True)
+        else:
+            st.info("No events logged yet. Apply an event above to log an entry.")
