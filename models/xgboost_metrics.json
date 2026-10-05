@@ -1,0 +1,24 @@
+{
+  "model_name": "XGBoost Disruption Classifier",
+  "train_year": 2024,
+  "test_year": 2025,
+  "train_records": 50213,
+  "test_records": 49787,
+  "scale_pos_weight": 2.552387690130881,
+  "accuracy": 0.6357282021411211,
+  "precision": 0.3879510095994704,
+  "recall": 0.49964473497228934,
+  "f1_score": 0.4367701863354037,
+  "roc_auc": 0.6312311101377851,
+  "pr_auc": 0.40391991466907073,
+  "confusion_matrix": [
+    [
+      24619,
+      11094
+    ],
+    [
+      7042,
+      7032
+    ]
+  ]
+}

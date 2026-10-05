@@ -1,0 +1,68 @@
+================================================================================
+SUPPLY CHAIN AI SYSTEM - DATASET INSPECTION & ANALYSIS REPORT
+================================================================================
+Source file: C:\Users\likhi\Downloads\SupplyChainAI\data\integrated_synthetic_supply_chain_dataset.xlsx
+Workbook sheets: ['Integrated_Data', 'Data_Dictionary', 'Model_Mapping']
+Integrated_Data Dimensions: 100,000 rows × 63 columns
+Data_Dictionary Entries: 63 rows
+Model_Mapping Entries: 7 rows
+--------------------------------------------------------------------------------
+
+1. TEMPORAL COVERAGE & CHRONOLOGICAL STRUCTURE:
+  - Minimum Date: 2024-01-01
+  - Maximum Date: 2025-12-30
+  - Total Unique Dates: 730 continuous calendar days
+  - Year 2024 Records (Train candidate): 50,213
+  - Year 2025 Records (Test candidate): 49,787
+
+2. UNIQUENESS & INTEGRITY:
+  - Exact Duplicate Rows: 0
+  - Unique Record_IDs: 100,000 / 100,000
+  - Unique Shipment_IDs: 100,000 / 100,000
+
+3. MISSING VALUE AUDIT:
+  - Column 'Disruption_Severity': 71,791 missing values (71.79%)
+    * Non-disrupted records with null Severity: 71,791 / 71,791
+    * Disrupted records with null Severity: 0 / 28,209
+    * Semantic Justification: Null in Disruption_Severity represents non-disruption. Will impute with 'No Disruption'.
+
+4. CONSTANT & REDUNDANT COLUMNS:
+  - Constant column detected: 'Currency' with single value 'USD'. Recommendation: Drop in preprocessing.
+  - Column redundancy: 'Production_Loss_Pct' vs 'Production_Impact_Pct' (Max Diff: 0.0, Pearson Corr: 1.0000). Recommendation: Drop 'Production_Loss_Pct'.
+  - Column redundancy: 'Delay_Days' vs 'Delivery_Delay_Days' (Max Diff: 0.0, Pearson Corr: 1.0000). Recommendation: Drop 'Delay_Days'.
+
+5. TARGETS, LEAKAGE CANDIDATES & POST-DISRUPTION AUDIT:
+  - Primary Target 'Disruption_Occurred':
+    * Class 0 (No Disruption): 71,791 (71.79%)
+    * Class 1 (Disruption): 28,209 (28.21%)
+    * Imbalance Ratio (0:1): 2.54 : 1
+  - Variable 'Disruption_Probability': Precomputed risk score. Corr with target = 0.2425. Must be EXCLUDED from pre-disruption features to prevent artificial target leakage.
+  - Post-Disruption Consequence Variables (Strictly excluded from pre-disruption XGBoost model):
+    * Disruption_Type: Post-event consequence or recovery metric (Used only in Impact, Monte Carlo, or Optimization).
+    * Disruption_Severity: Post-event consequence or recovery metric (Used only in Impact, Monte Carlo, or Optimization).
+    * Cargo_Condition: Post-event consequence or recovery metric (Used only in Impact, Monte Carlo, or Optimization).
+    * Order_Fulfillment_Status: Post-event consequence or recovery metric (Used only in Impact, Monte Carlo, or Optimization).
+    * Delivery_Time_Deviation: Post-event consequence or recovery metric (Used only in Impact, Monte Carlo, or Optimization).
+    * Delivery_Delay_Days: Post-event consequence or recovery metric (Used only in Impact, Monte Carlo, or Optimization).
+    * Delay_Days: Post-event consequence or recovery metric (Used only in Impact, Monte Carlo, or Optimization).
+    * Inventory_Shortage_Units: Post-event consequence or recovery metric (Used only in Impact, Monte Carlo, or Optimization).
+    * Financial_Loss_USD: Post-event consequence or recovery metric (Used only in Impact, Monte Carlo, or Optimization).
+    * Production_Impact_Pct: Post-event consequence or recovery metric (Used only in Impact, Monte Carlo, or Optimization).
+    * Production_Loss_Pct: Post-event consequence or recovery metric (Used only in Impact, Monte Carlo, or Optimization).
+    * Customer_Impact_Score: Post-event consequence or recovery metric (Used only in Impact, Monte Carlo, or Optimization).
+    * Overall_Impact_Score: Post-event consequence or recovery metric (Used only in Impact, Monte Carlo, or Optimization).
+    * Recovery_Strategy: Post-event consequence or recovery metric (Used only in Impact, Monte Carlo, or Optimization).
+    * Recovery_Cost_USD: Post-event consequence or recovery metric (Used only in Impact, Monte Carlo, or Optimization).
+    * Recovery_Time_Days: Post-event consequence or recovery metric (Used only in Impact, Monte Carlo, or Optimization).
+
+6. ENTITY CARDINALITIES & SUPPLY CHAIN GRAPH NETWORK:
+  - Suppliers (Supplier_ID): 50 unique values
+  - Factories (Factory_ID): 17 unique values
+  - Origin Ports (Origin_Port): 5 unique values
+  - Destination Ports (Destination_Port): 6 unique values
+  - Warehouses (Warehouse_ID): 15 unique values
+  - Routes (Route_ID): 60 unique values
+  - Carriers (Carrier): 6 unique values
+  - Products / SKUs (Product_ID): 100 unique values
+  - Product Categories (Product_Category): 5 unique values
+  - Transport Modes (Transport_Mode): 4 unique values

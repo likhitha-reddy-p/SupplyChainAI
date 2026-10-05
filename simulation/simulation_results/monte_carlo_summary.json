@@ -1,0 +1,42 @@
+{
+  "Scenario A (Current Supplier)": {
+    "expected_recovery_cost": 0.04153277602202532,
+    "expected_recovery_time_days": 1.0077237677872213,
+    "expected_delay_days": 1.1808691514238374,
+    "expected_inventory_shortage": 0.20933551747408013,
+    "expected_total_financial_loss": 129428.33550124666,
+    "expected_outcome_risk_score": 12.361342879642754,
+    "p95_financial_loss_var": 481515.1331884564,
+    "p95_delay_days": 3.6882371929264566
+  },
+  "Scenario B (Alternative Supplier)": {
+    "expected_recovery_cost": 22087.12436842354,
+    "expected_recovery_time_days": 8.667007467954317,
+    "expected_delay_days": 20.945008328329326,
+    "expected_inventory_shortage": 192.22644291168282,
+    "expected_total_financial_loss": 4033964.1105781035,
+    "expected_outcome_risk_score": 61.297407489708625,
+    "p95_financial_loss_var": 12330130.94472677,
+    "p95_delay_days": 22.939942133283342
+  },
+  "Scenario C (Shipment Rerouting)": {
+    "expected_recovery_cost": 9465.029701698864,
+    "expected_recovery_time_days": 4.959188342718862,
+    "expected_delay_days": 11.244606537739022,
+    "expected_inventory_shortage": 54.36374450652247,
+    "expected_total_financial_loss": 1672396.3794234053,
+    "expected_outcome_risk_score": 43.83829938251113,
+    "p95_financial_loss_var": 5319232.575281944,
+    "p95_delay_days": 14.473176418249935
+  },
+  "Scenario D (Inventory Reallocation)": {
+    "expected_recovery_cost": 3108.9279237421597,
+    "expected_recovery_time_days": 2.006141976178601,
+    "expected_delay_days": 6.977301569015279,
+    "expected_inventory_shortage": 14.990961206706993,
+    "expected_total_financial_loss": 923244.414542238,
+    "expected_outcome_risk_score": 34.612759017106754,
+    "p95_financial_loss_var": 2856478.2947468767,
+    "p95_delay_days": 10.882251346549806
+  }
+}

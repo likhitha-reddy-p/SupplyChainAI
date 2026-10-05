@@ -1,0 +1,27 @@
+{
+  "num_nodes": 93,
+  "num_edges": 187,
+  "node_types": {
+    "Suppliers": 50,
+    "Factories": 17,
+    "Origin_Ports": 5,
+    "Destination_Ports": 6,
+    "Warehouses": 15
+  },
+  "edge_types": {
+    "DEST_PORT_TO_WAREHOUSE": 90,
+    "SUPPLIER_TO_FACTORY": 50,
+    "ORIGIN_TO_DEST_PORT": 30,
+    "FACTORY_TO_ORIGIN_PORT": 17
+  },
+  "gnn_architecture": "2-layer Graph Convolutional Network (GCN)",
+  "final_node_vulnerability_mse": 0.00031171910814009607,
+  "features_used": [
+    "echelon_norm",
+    "in_degree",
+    "out_degree",
+    "betweenness_centrality",
+    "pagerank",
+    "operational_reliability"
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "model_name": "LSTM Demand Forecaster",
+  "lookback_days": 14,
+  "features": [
+    "Historical_Demand",
+    "Inventory_Level",
+    "Safety_Stock",
+    "Shipment_Quantity"
+  ],
+  "train_year": 2024,
+  "test_year": 2025,
+  "train_sequences": 352,
+  "test_sequences": 364,
+  "mae": 6.180227850854811,
+  "mse": 70.86799306413339,
+  "rmse": 8.41831295831495,
+  "mape": 1.4165673852738478,
+  "r2_score": 0.9633107043642364
+}
